@@ -57,7 +57,7 @@ jobs:
         working-directory: lambdas
         env:
           VERSION: '${{ steps.tag_bump.outputs.new_tag }}'
-          BUCKET_NAME: 'aw-ohid-euw2-${{ matrix.environment}}-s3-lambda-packages'
+          BUCKET_NAME: 'aw-phe-euw2-${{ matrix.environment}}-s3-lambda-packages'
           PIP_CACHE_DIR: '${{ github.workspace }}/.pipcache'
           AWS_ACCOUNT_ID: '${{ secrets.AWS_ACCOUNT_ID }}'
           AWS_DEFAULT_REGION: '${{ vars.AWS_REGION }}'
