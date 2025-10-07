@@ -17,7 +17,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - uses: actions/setup-python@v5
 
@@ -37,4 +37,4 @@ jobs:
         PIP_CACHE_DIR: "${{ github.workspace }}/.pipcache"
         RELATIVE_UNIT_TESTS_DIR: "./tests/unit"
         PYTHON_VERSION: "3.12"
-      run: ./.github/workflows/scripts/unit-tests.sh
+      run: ../.github/workflows/scripts/unit-tests.sh

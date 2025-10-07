@@ -62,4 +62,4 @@ jobs:
           AWS_ACCOUNT_ID: '${{ secrets.AWS_ACCOUNT_ID }}'
           ENVIRONMENT: '${{ matrix.environment }}'
           LAMBDA_PREFIX: "aw-phe-euw2-"
-        run: ./.github/workflows/scripts/deploy-lambdas.sh
+        run: ../.github/workflows/scripts/deploy-lambdas.sh
