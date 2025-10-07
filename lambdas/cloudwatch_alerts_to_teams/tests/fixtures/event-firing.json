@@ -1,0 +1,27 @@
+{
+    "Records": [
+      {
+        "EventSource": "aws:sns",
+        "EventVersion": "1.0",
+        "EventSubscriptionArn": "arn:aws:sns:eu-west-1:123456789012:IntegrationTopic",
+        "Sns": {
+          "Type": "Notification",
+          "MessageId": "ebd4bced-3df4-4cf7-8e6d-000000000001",
+          "TopicArn": "arn:aws:sns:eu-west-1:123456789012:IntegrationTopic",
+          "Subject": "ALARM: Lambda Integration Test Alarm",
+          "Message": "{\"AlarmName\": \"Lambda Integration Test - Ignore\", \"AlarmDescription\": \"Alarm ALARM state Lambda Test Notification\", \"NewStateReason\": \"Threshold crossed: 1 datapoint\", \"NewStateValue\": \"ALARM\", \"AWSAccountId\": \"123456789012\", \"Namespace\": \"AWS/EC2\", \"Threshold\": 80, \"Region\": \"eu-west-1\"}",
+          "Timestamp": "2024-01-01T00:00:00.000Z",
+          "SignatureVersion": "1",
+          "Signature": "EXAMPLE",
+          "SigningCertUrl": "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService.pem",
+          "UnsubscribeUrl": "https://sns.eu-west-1.amazonaws.com/unsubscribe",
+          "MessageAttributes": {
+            "AlarmState": {
+              "Type": "String",
+              "Value": "OK"
+            }
+          }
+        }
+      }
+    ]
+  }

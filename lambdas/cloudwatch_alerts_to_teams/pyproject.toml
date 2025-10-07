@@ -1,0 +1,28 @@
+[project]
+name = "cloudwatch_alerts_to_teams"
+version = "0.1.0"
+description = "AWS Lambda handler that forwards CloudWatch alarms to Microsoft Teams."
+requires-python = ">=3.12"
+dependencies = [
+    "requests==2.32.5",
+]
+
+# Boto3 is included with Lambda and Powertools is installed using a Lambda layer
+# so is only needed for testing.
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.2",
+    "pytest-mock==3.15.1",
+    "boto3==1.40.46",
+    "aws-lambda-powertools==3.20.0",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = [
+    "cloudwatch_alerts_to_teams/tests",
+]

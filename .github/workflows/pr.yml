@@ -1,0 +1,40 @@
+name: 'Unittest Lambda functions'
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  test:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+
+    - name: Cache Pip Downloads
+      id: cache-pip
+      uses: actions/cache@v4
+      with:
+        path: "${{ github.workspace }}/.pipcache"
+        key: ${{ runner.os }}-pipdownloadcache-${{ hashFiles('**/requirements.txt') }}
+
+    - name: Run unit tests
+      working-directory: lambdas
+      env:
+        PIP_CACHE_DIR: "${{ github.workspace }}/.pipcache"
+        RELATIVE_UNIT_TESTS_DIR: "./tests/unit"
+        PYTHON_VERSION: "3.12"
+      run: ./.github/workflows/scripts/unit-tests.sh

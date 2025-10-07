@@ -1,0 +1,65 @@
+name: Release Lambda functions
+on:
+  push:
+    branches:
+      - main
+env:
+  AWS_REGION: '${{ vars.AWS_REGION }}'
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  release:
+    name: 'Deploy build to ${{ matrix.environment }}'
+    runs-on: ubuntu-latest
+    environment: '${{ matrix.environment }}'
+    strategy:
+      max-parallel: 1
+      matrix:
+        environment: ["prd"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+
+      - uses: >-
+          ukhsa-collaboration/devops-github-actions/.github/actions/github-bump-tag@v0.8.0
+        id: tag_bump
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          WITH_V: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: >-
+            arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{
+            secrets.AWS_DEPLOY_ROLE }}
+          role-session-name: 'build-and-push-env-${{ github.sha }}'
+          aws-region: '${{ env.AWS_REGION }}'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Cache Pip Downloads
+        id: cache-pip
+        uses: actions/cache@v4
+        with:
+          path: '${{ github.workspace }}/.pipcache'
+          key: >-
+            ${{ runner.os }}-pipdownloadcache-${{
+            hashFiles('**/requirements.txt') }}
+
+      - name: Zip and upload to S3
+        working-directory: lambdas
+        env:
+          VERSION: '${{ steps.tag_bump.outputs.new_tag }}'
+          BUCKET_NAME: 'aw-ohid-euw2-${{ matrix.environment}}-s3-packages'
+          PIP_CACHE_DIR: '${{ github.workspace }}/.pipcache'
+          AWS_ACCOUNT_ID: '${{ secrets.AWS_ACCOUNT_ID }}'
+          ENVIRONMENT: '${{ matrix.environment }}'
+          LAMBDA_PREFIX: "aw-phe-euw2-"
+        run: ./.github/workflows/scripts/deploy-lambdas.sh
