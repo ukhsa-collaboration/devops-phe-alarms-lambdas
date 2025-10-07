@@ -60,6 +60,8 @@ jobs:
           BUCKET_NAME: 'aw-ohid-euw2-${{ matrix.environment}}-s3-packages'
           PIP_CACHE_DIR: '${{ github.workspace }}/.pipcache'
           AWS_ACCOUNT_ID: '${{ secrets.AWS_ACCOUNT_ID }}'
+          AWS_DEFAULT_REGION: '${{ vars.AWS_REGION }}'
+          AWS_REGION: '${{ vars.AWS_REGION }}'
           ENVIRONMENT: '${{ matrix.environment }}'
           LAMBDA_PREFIX: "aw-phe-euw2-"
         run: ../.github/workflows/scripts/deploy-lambdas.sh
