@@ -286,14 +286,6 @@ def create_adaptive_card(
                                     "title": "AWS Account ID",
                                     "value": alarm_data["account_id"],
                                 },
-                                {
-                                    "title": "Namespace",
-                                    "value": alarm_data["namespace"],
-                                },
-                                {
-                                    "title": "Threshold",
-                                    "value": alarm_data["threshold"],
-                                },
                                 {"title": "Region", "value": alarm_data["region"]},
                             ],
                         },
