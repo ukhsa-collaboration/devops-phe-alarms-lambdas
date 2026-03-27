@@ -1,5 +1,7 @@
 import importlib
 import json
+import sys
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -12,10 +14,14 @@ def main_module(monkeypatch):
     monkeypatch.setenv("WEBHOOK_URL_SECRET_NAME", "secret-name")
     monkeypatch.setenv("AWS_REGION", "eu-west-1")
     monkeypatch.setenv("TIMEOUT_SECONDS", "15")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-    module = importlib.reload(
-        importlib.import_module("cloudwatch_alerts_to_teams.app.main")
-    )
+    try:
+        module = importlib.reload(
+            importlib.import_module("cloudwatch_alerts_to_teams.app.main")
+        )
+    except ModuleNotFoundError:
+        module = importlib.reload(importlib.import_module("app.main"))
     module._webhook_url_cache = None
 
     yield module
@@ -79,6 +85,61 @@ def test_extract_alarm_data_includes_defaults(main_module):
     assert data["region"] == "eu-west-1"
     assert data["threshold"] == "N/A"
     assert data["alarm_time"]
+
+
+def test_build_alarm_title_uses_friendly_account_name(main_module, monkeypatch):
+    monkeypatch.setattr(
+        main_module, "AWS_ACCOUNT_NAMES_SSM_PARAMETER", "/shared/aws/account-map"
+    )
+    monkeypatch.setattr(
+        main_module.ssm_provider,
+        "get",
+        MagicMock(return_value={"123456789012": "Active 10 - Production"}),
+    )
+
+    title = main_module.build_alarm_title({"account_id": "123456789012"})
+
+    assert title == "Active 10 - Production"
+
+
+def test_build_alarm_title_uses_unmapped_account_for_unknown_account(
+    main_module, monkeypatch
+):
+    monkeypatch.setattr(
+        main_module, "AWS_ACCOUNT_NAMES_SSM_PARAMETER", "/shared/aws/account-map"
+    )
+    monkeypatch.setattr(
+        main_module.ssm_provider,
+        "get",
+        MagicMock(return_value={"999999999999": "Some Other Account"}),
+    )
+
+    title = main_module.build_alarm_title({"account_id": "123456789012"})
+
+    assert title == "Unmapped Account"
+
+
+def test_create_adaptive_card_includes_alarm_name_fact(main_module, monkeypatch):
+    monkeypatch.setattr(
+        main_module, "AWS_ACCOUNT_NAMES_SSM_PARAMETER", "/shared/aws/account-map"
+    )
+    monkeypatch.setattr(
+        main_module.ssm_provider,
+        "get",
+        MagicMock(return_value={"123456789012": "Active 10 - Production"}),
+    )
+    event_payload = _build_sns_event_payload()
+    alarm_payload = json.loads(event_payload["Records"][0]["Sns"]["Message"])
+    alarm_data = main_module.extract_alarm_data(alarm_payload)
+    state_style = main_module.get_state_style(alarm_data["alarm_state"])
+
+    card = main_module.create_adaptive_card(alarm_data, state_style)
+    content = card["attachments"][0]["content"]
+
+    assert (
+        content["body"][0]["text"] == "🚨 **Alarm Triggered: Active 10 - Production**"
+    )
+    assert {"title": "Alarm Name", "value": "HighCPU"} in content["body"][4]["facts"]
 
 
 def test_process_sns_record_success(main_module, monkeypatch):
