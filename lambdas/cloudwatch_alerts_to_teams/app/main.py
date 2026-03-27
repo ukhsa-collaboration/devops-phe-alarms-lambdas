@@ -11,13 +11,15 @@ from urllib3.util.retry import Retry
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import SNSEvent, event_source
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from aws_lambda_powertools.utilities.parameters import SecretsProvider
+from aws_lambda_powertools.utilities.parameters import SSMProvider, SecretsProvider
 
 logger = Logger()
 
 DEFAULT_TIMEOUT_SECONDS = 10
+DEFAULT_ACCOUNT_NAMES_CACHE_MAX_AGE = 300
 _webhook_url_cache: Optional[str] = None
 secrets_provider = SecretsProvider()
+ssm_provider = SSMProvider()
 
 
 def _load_timeout_seconds(default: int = DEFAULT_TIMEOUT_SECONDS) -> int:
@@ -46,6 +48,7 @@ def _load_timeout_seconds(default: int = DEFAULT_TIMEOUT_SECONDS) -> int:
 
 
 WEBHOOK_URL_SECRET_NAME = os.getenv("WEBHOOK_URL_SECRET_NAME") or ""
+AWS_ACCOUNT_NAMES_SSM_PARAMETER = os.getenv("AWS_ACCOUNT_NAMES_SSM_PARAMETER") or ""
 AWS_REGION = os.getenv("AWS_REGION") or ""
 TIMEOUT_SECONDS = _load_timeout_seconds()
 
@@ -234,6 +237,53 @@ def build_cloudwatch_url(alarm_name: str, region: Optional[str] = None) -> str:
     )
 
 
+def get_account_name(account_id: str) -> str:
+    """Resolve a friendly AWS account name from environment configuration."""
+    if not AWS_ACCOUNT_NAMES_SSM_PARAMETER:
+        logger.warning(
+            "AWS_ACCOUNT_NAMES_SSM_PARAMETER not configured; using unmapped account label"
+        )
+        return "Unmapped Account"
+
+    try:
+        account_names = ssm_provider.get(
+            AWS_ACCOUNT_NAMES_SSM_PARAMETER,
+            max_age=DEFAULT_ACCOUNT_NAMES_CACHE_MAX_AGE,
+            transform="json",
+        )
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.warning(
+            "Unable to load AWS account names from SSM; using unmapped account label",
+            parameter_name=AWS_ACCOUNT_NAMES_SSM_PARAMETER,
+            error_message=str(exc),
+        )
+        return "Unmapped Account"
+
+    if not isinstance(account_names, dict):
+        logger.warning(
+            "AWS account names SSM parameter must contain a JSON object; using unmapped account label",
+            parameter_name=AWS_ACCOUNT_NAMES_SSM_PARAMETER,
+        )
+        return "Unmapped Account"
+
+    resolved_name = account_names.get(account_id)
+    if resolved_name is None:
+        logger.warning(
+            "AWS account id missing from SSM account-name map",
+            account_id=account_id,
+            parameter_name=AWS_ACCOUNT_NAMES_SSM_PARAMETER,
+        )
+        return "Unmapped Account"
+
+    return str(resolved_name)
+
+
+def build_alarm_title(alarm_data: Dict[str, str]) -> str:
+    """Construct the headline text using the friendly account name when available."""
+    account_id = alarm_data.get("account_id", "000000000000")
+    return sanitize_text(get_account_name(account_id), max_length=200)
+
+
 def create_adaptive_card(
     alarm_data: Dict[str, str], state_style: Dict[str, str]
 ) -> Dict[str, Any]:
@@ -254,7 +304,7 @@ def create_adaptive_card(
                     "body": [
                         {
                             "type": "TextBlock",
-                            "text": f"{state_style['icon']} **{state_style['title']}: {alarm_data['alarm_name']}**",
+                            "text": f"{state_style['icon']} **{state_style['title']}: {build_alarm_title(alarm_data)}**",
                             "weight": "Bolder",
                             "size": "Large",
                             "wrap": True,
@@ -286,7 +336,18 @@ def create_adaptive_card(
                                     "title": "AWS Account ID",
                                     "value": alarm_data["account_id"],
                                 },
-                                {"title": "Region", "value": alarm_data["region"]},
+                                {
+                                    "title": "Alarm Name",
+                                    "value": alarm_data["alarm_name"],
+                                },
+                                {
+                                    "title": "Namespace",
+                                    "value": alarm_data["namespace"],
+                                },
+                                {
+                                    "title": "Threshold",
+                                    "value": alarm_data["threshold"],
+                                },
                             ],
                         },
                         {
